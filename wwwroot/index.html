@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Face Detection</title>
+</head>
+<body>
+    <video id="video" autoplay></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div id="expression"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+
+        // Access the webcam
+        navigator.mediaDevices.getUserMedia({ video: true })
+            .then(stream => {
+                video.srcObject = stream;
+            })
+            .catch(err => {
+                console.error('Error accessing the camera:', err);
+            });
+
+        // Set up SignalR connection
+        const connection = new signalR.HubConnectionBuilder()
+            .withUrl('/videoHub')
+            .build();
+
+        connection.start().then(() => {
+            console.log('SignalR connection established.');
+        }).catch(err => {
+            console.error('SignalR connection error:', err);
+        });
+
+        // Capture frames and send to backend
+        setInterval(() => {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = canvas.toDataURL('image/jpeg');
+            connection.invoke('SendFrame', imageData)
+                .catch(err => console.error('Error sending frame:', err));
+        }, 100);
+
+        // Receive expression results
+        connection.on('ReceiveExpression', (expression) => {
+            const expressionElement = document.getElementById('expression');
+            expressionElement.innerText = `Expression: ${expression}`;
+        });
+    </script>
+</body>
+</html>
